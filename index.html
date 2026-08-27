@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal inDrive ride-sharing earnings tracker for Pakistani drivers. Track fares, expenses, and weekly profits — fully offline, no installation needed.">
+    <title>inDrive Earnings Tracker | Umar's Dashboard</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS v4 Browser (CDN) -->
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* =========================================================
+           BASE RESET & CUSTOM PROPERTIES
+           ========================================================= */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg        : #07090F;
+            --bg2       : #0D1423;
+            --card      : rgba(13, 20, 40, 0.85);
+            --border    : rgba(99, 102, 241, 0.18);
+            --text      : #F1F5F9;
+            --muted     : #64748B;
+            --dim       : #334155;
+            --indigo    : #6366F1;
+            --green     : #10B981;
+            --red       : #EF4444;
+            --amber     : #F59E0B;
+            --blue      : #3B82F6;
+            --violet    : #8B5CF6;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family   : 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(ellipse 70% 50% at 5% 0%,   rgba(99,102,241,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 95% 100%, rgba(16,185,129,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 30% at 50% 50%,  rgba(99,102,241,0.03) 0%, transparent 70%);
+            color         : var(--text);
+            min-height    : 100vh;
+            line-height   : 1.5;
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar          { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track    { background: transparent; }
+        ::-webkit-scrollbar-thumb    { background: rgba(99,102,241,0.25); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.45); }
+
+        /* ── Remove number input spinners ── */
+        input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+        /* =========================================================
+           LAYOUT COMPONENTS
+           ========================================================= */
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+        /* ── Glass Card ── */
+        .card {
+            background      : var(--card);
+            border          : 1px solid var(--border);
+            border-radius   : 16px;
+            backdrop-filter : blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* ── Stat Card hover ── */
+        .stat-card { transition: transform 0.22s ease, box-shadow 0.22s ease; cursor: default; }
+        .stat-card:hover {
+            transform  : translateY(-3px);
+            box-shadow : 0 16px 44px rgba(99,102,241,0.13);
+        }
+
+        /* ── Icon Box ── */
+        .icon-box {
+            width          : 38px;
+            height         : 38px;
+            border-radius  : 10px;
+            display        : flex;
+            align-items    : center;
+            justify-content: center;
+            font-size      : 18px;
+            flex-shrink    : 0;
+        }
+
+        /* ── Logo Box ── */
+        .logo-box {
+            width          : 46px;
+            height         : 46px;
+            background     : linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            border-radius  : 13px;
+            display        : flex;
+            align-items    : center;
+            justify-content: center;
+            box-shadow     : 0 4px 16px rgba(99,102,241,0.42);
+            flex-shrink    : 0;
+        }
+
+        /* ── Header ── */
+        .site-header {
+            background      : linear-gradient(180deg, rgba(13,20,40,0.97) 0%, rgba(7,9,15,0.93) 100%);
+            border-bottom   : 1px solid rgba(99,102,241,0.13);
+            backdrop-filter : blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            position        : sticky;
+            top             : 0;
+            z-index         : 100;
+        }
+
+        /* =========================================================
+           FORM ELEMENTS
+           ========================================================= */
+        .form-label {
+            display        : block;
+            font-size      : 11px;
+            font-weight    : 600;
+            color          : var(--muted);
+            text-transform : uppercase;
+            letter-spacing : 0.07em;
+            margin-bottom  : 7px;
+        }
+
+        .form-input {
+            width            : 100%;
+            background       : rgba(7,9,15,0.65);
+            border           : 1px solid rgba(99,102,241,0.2);
+            border-radius    : 10px;
+            color            : var(--text);
+            padding          : 11px 14px;
+            font-size        : 14px;
+            font-family      : inherit;
+            transition       : border-color 0.2s, box-shadow 0.2s;
+            outline          : none;
+            appearance       : none;
+            -webkit-appearance: none;
+        }
+        .form-input:focus {
+            border-color : var(--indigo);
+            box-shadow   : 0 0 0 3px rgba(99,102,241,0.15), 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .form-input::placeholder { color: rgba(100,116,139,0.55); }
+        .form-input option       { background: #0D1423; }
+
+        /* ── Primary Button ── */
+        .btn-primary {
+            display        : flex;
+            align-items    : center;
+            justify-content: center;
+            gap            : 8px;
+            width          : 100%;
+            padding        : 13px 24px;
+            background     : linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            color          : #fff;
+            border         : none;
+            border-radius  : 10px;
+            font-size      : 15px;
+            font-weight    : 700;
+            font-family    : inherit;
+            cursor         : pointer;
+            transition     : opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow     : 0 4px 22px rgba(99,102,241,0.37);
+            letter-spacing : 0.01em;
+        }
+        .btn-primary:hover  { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(99,102,241,0.48); }
+        .btn-primary:active { transform: translateY(0); opacity: 1; }
+
+        /* ── Delete Button ── */
+        .btn-delete {
+            display      : inline-flex;
+            align-items  : center;
+            gap          : 4px;
+            padding      : 5px 10px;
+            background   : rgba(239,68,68,0.1);
+            border       : 1px solid rgba(239,68,68,0.2);
+            color        : #EF4444;
+            border-radius: 7px;
+            font-size    : 12px;
+            font-family  : inherit;
+            cursor       : pointer;
+            transition   : background 0.2s, border-color 0.2s;
+            white-space  : nowrap;
+        }
+        .btn-delete:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
+
+        /* =========================================================
+           TABLE
+           ========================================================= */
+        .data-table                { width: 100%; border-collapse: collapse; }
+        .data-table th {
+            padding        : 12px 16px;
+            text-align     : left;
+            font-size      : 10.5px;
+            font-weight    : 700;
+            color          : var(--muted);
+            text-transform : uppercase;
+            letter-spacing : 0.09em;
+            border-bottom  : 1px solid rgba(99,102,241,0.15);
+            white-space    : nowrap;
+        }
+        .data-table td             { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid rgba(15,25,50,0.8); }
+        .data-table tbody tr       { transition: background 0.15s; }
+        .data-table tbody tr:hover td { background: rgba(99,102,241,0.04); }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+
+        /* =========================================================
+           BADGES
+           ========================================================= */
+        .badge {
+            display        : inline-flex;
+            align-items    : center;
+            gap            : 4px;
+            padding        : 3px 10px;
+            border-radius  : 20px;
+            font-size      : 11px;
+            font-weight    : 600;
+            white-space    : nowrap;
+        }
+        .badge-mira  { background: rgba(59,130,246,0.12);  color: #60A5FA; border: 1px solid rgba(59,130,246,0.22); }
+        .badge-civic { background: rgba(139,92,246,0.12);  color: #A78BFA; border: 1px solid rgba(139,92,246,0.22); }
+
+        /* =========================================================
+           STATUS CARD
+           ========================================================= */
+        #week-status-card {
+            border-radius       : 16px;
+            border              : 1px solid;
+            padding             : 24px;
+            backdrop-filter     : blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition          : background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        /* =========================================================
+           PROGRESS BAR
+           ========================================================= */
+        .progress-track {
+            background   : rgba(255,255,255,0.06);
+            border-radius: 4px;
+            height       : 6px;
+            overflow     : hidden;
+        }
+        .progress-fill {
+            height       : 100%;
+            border-radius: 4px;
+            transition   : width 0.75s cubic-bezier(0.4,0,0.2,1), background 0.5s ease;
+        }
+
+        /* =========================================================
+           CHART WRAPPERS
+           ========================================================= */
+        .chart-wrap { position: relative; height: 220px; }
+
+        /* =========================================================
+           TOAST
+           ========================================================= */
+        #toast {
+            position      : fixed;
+            bottom        : 28px;
+            right         : 28px;
+            padding       : 13px 18px;
+            border-radius : 12px;
+            font-size     : 14px;
+            font-weight   : 500;
+            z-index       : 9999;
+            transform     : translateY(100px);
+            opacity       : 0;
+            transition    : transform 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease;
+            pointer-events: none;
+            max-width     : 360px;
+            display       : flex;
+            align-items   : center;
+            gap           : 10px;
+            box-shadow    : 0 8px 36px rgba(0,0,0,0.55);
+        }
+        #toast.visible  { transform: translateY(0); opacity: 1; }
+        #toast.success  { background: rgba(16,185,129,0.15);  border: 1px solid rgba(16,185,129,0.35); color: #10B981; }
+        #toast.error    { background: rgba(239,68,68,0.15);   border: 1px solid rgba(239,68,68,0.35);  color: #EF4444; }
+        #toast.info     { background: rgba(99,102,241,0.15);  border: 1px solid rgba(99,102,241,0.35); color: #A5B4FC; }
+
+        /* =========================================================
+           ANIMATIONS
+           ========================================================= */
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 0   rgba(239,68,68,0.28); }
+            50%       { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+        }
+        .pulse-danger { animation: pulse-border 2.5s ease-in-out infinite; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.4s ease forwards; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* =========================================================
+           SECTION HELPERS
+           ========================================================= */
+        .section-title { font-size: 18px; font-weight: 700; color: var(--text); }
+        .section-sub   { font-size: 12px; color: var(--muted); margin-top: 3px; }
+        .sep           { height: 1px; background: rgba(99,102,241,0.1); margin: 18px 0; }
+
+        /* =========================================================
+           GRID LAYOUTS
+           ========================================================= */
+        .stats-grid  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .main-grid   { display: grid; grid-template-columns: 3fr 2fr; gap: 24px; }
+        .charts-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; }
+
+        /* =========================================================
+           REPORT TABS
+           ========================================================= */
+        .report-tab {
+            padding        : 9px 20px;
+            background     : rgba(99,102,241,0.08);
+            border         : 1px solid rgba(99,102,241,0.18);
+            color          : var(--muted);
+            border-radius  : 9px;
+            font-size      : 13px;
+            font-weight    : 600;
+            font-family    : inherit;
+            cursor         : pointer;
+            transition     : all 0.2s;
+            white-space    : nowrap;
+        }
+        .report-tab:hover {
+            background : rgba(99,102,241,0.15);
+            color      : var(--text);
+        }
+        .report-tab.active {
+            background   : linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.2) 100%);
+            border-color : rgba(99,102,241,0.5);
+            color        : #A5B4FC;
+        }
+
+        /* =========================================================
+           PAST WEEK BARS
+           ========================================================= */
+        .week-bar {
+            background      : var(--card);
+            border          : 1px solid var(--border);
+            border-radius   : 12px;
+            backdrop-filter : blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            margin-bottom   : 10px;
+            overflow        : hidden;
+            transition      : border-color 0.2s;
+        }
+        .week-bar:hover { border-color: rgba(99,102,241,0.38); }
+        .week-bar-header {
+            display        : flex;
+            align-items    : center;
+            justify-content: space-between;
+            padding        : 16px 20px;
+            cursor         : pointer;
+            user-select    : none;
+            gap            : 12px;
+            flex-wrap      : wrap;
+        }
+        .week-bar-details {
+            max-height : 0;
+            overflow   : hidden;
+            transition : max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .week-bar-details.open { max-height: 9999px; }
+
+        /* =========================================================
+           REPORT CARD & STAT TILES
+           ========================================================= */
+        .report-card {
+            background      : var(--card);
+            border          : 1px solid rgba(99,102,241,0.22);
+            border-radius   : 16px;
+            backdrop-filter : blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding         : 28px;
+        }
+        .report-stat {
+            background   : rgba(99,102,241,0.06);
+            border       : 1px solid rgba(99,102,241,0.12);
+            border-radius: 12px;
+            padding      : 16px;
+            text-align   : center;
+        }
+
+        /* =========================================================
+           WEEK-END SUNDAY BANNER
+           ========================================================= */
+        #week-end-banner-inner {
+            border-radius   : 16px;
+            border          : 1px solid;
+            padding         : 22px 28px;
+            backdrop-filter : blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display         : flex;
+            align-items     : center;
+            justify-content : space-between;
+            flex-wrap       : wrap;
+            gap             : 20px;
+            animation       : slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* =========================================================
+           RESPONSIVE
+           ========================================================= */
+        @media (max-width: 1100px) {
+            .charts-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 860px) {
+            .stats-grid  { grid-template-columns: 1fr 1fr; }
+            .main-grid   { grid-template-columns: 1fr; }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            #rp-monthly > div,
+            #rp-custom  > div { grid-template-columns: 1fr !important; }
+            #rp-weekly  > div { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .container  { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     TOAST NOTIFICATION
+     ═══════════════════════════════════════════ -->
+<div id="toast" role="alert" aria-live="polite"></div>
+
+<!-- ═══════════════════════════════════════════
+     HEADER
+     ═══════════════════════════════════════════ -->
+<header class="site-header">
+    <div class="container" style="padding-top:16px; padding-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+
+        <!-- Brand -->
+        <div style="display:flex; align-items:center; gap:14px;">
+            <div class="logo-box" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 12.5L7.9 7.5C8.4 6.1 9.6 5.5 10.8 5.5H15.2C16.4 5.5 17.6 6.1 18.1 7.5L20 12.5" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="3" y="12.5" width="20" height="8" rx="2.5" stroke="white" stroke-width="1.7"/>
+                    <circle cx="8.5" cy="20.5" r="2" fill="white"/>
+                    <circle cx="17.5" cy="20.5" r="2" fill="white"/>
+                    <line x1="3.5" y1="16" x2="22.5" y2="16" stroke="white" stroke-width="1" opacity="0.35"/>
+                </svg>
+            </div>
+            <div>
+                <h1 style="font-size:19px; font-weight:800; color:#F1F5F9; letter-spacing:-0.025em; line-height:1.2;">
+                    inDrive Earnings Tracker
+                </h1>
+                <p style="font-size:12px; color:#64748B; margin-top:1px;">
+                    Umar's Personal Dashboard &middot; Pakistan &#127477;&#127472;
+                </p>
+            </div>
+        </div>
+
+        <!-- Week / Date info -->
+        <div style="text-align:right;">
+            <div id="header-week" style="font-size:13px; font-weight:600; color:#A5B4FC; letter-spacing:-0.01em;"></div>
+            <div id="header-date" style="font-size:12px; color:#475569; margin-top:2px;"></div>
+        </div>
+
+    </div>
+</header>
+
+<!-- ═══════════════════════════════════════════
+     MAIN CONTENT
+     ═══════════════════════════════════════════ -->
+<main class="container" style="padding-top:28px; padding-bottom:52px;">
+
+    <!-- ── STATS ROW ── -->
+    <div class="stats-grid" style="margin-bottom:28px;" id="stats-row">
+
+        <!-- Card 1: Weekly Fares -->
+        <div class="card stat-card" style="padding:20px;" id="card-fares">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <div class="icon-box" style="background:rgba(16,185,129,0.12);">&#128176;</div>
+                <span style="font-size:11px; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.07em;">Week Fares</span>
+            </div>
+            <div id="stat-fares" style="font-size:24px; font-weight:800; color:#10B981; letter-spacing:-0.02em;">PKR 0</div>
+            <div style="font-size:11px; color:#475569; margin-top:5px;">Total earned this week</div>
+        </div>
+
+        <!-- Card 2: Total Expenses -->
+        <div class="card stat-card" style="padding:20px;" id="card-expenses">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <div class="icon-box" style="background:rgba(239,68,68,0.10);">&#128228;</div>
+                <span style="font-size:11px; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.07em;">Expenses</span>
+            </div>
+            <div id="stat-expenses" style="font-size:24px; font-weight:800; color:#EF4444; letter-spacing:-0.02em;">PKR 0</div>
+            <div id="stat-expenses-sub" style="font-size:11px; color:#475569; margin-top:5px;">Fuel + Maintenance + Other</div>
+        </div>
+
+        <!-- Card 3: Net Profit/Loss -->
+        <div class="card stat-card" style="padding:20px; border-color:rgba(99,102,241,0.28);" id="card-net">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <div class="icon-box" style="background:rgba(99,102,241,0.12);">&#128202;</div>
+                <span style="font-size:11px; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.07em;">Net Profit</span>
+            </div>
+            <div id="stat-net" style="font-size:24px; font-weight:800; color:#6366F1; letter-spacing:-0.02em;">PKR 0</div>
+            <div style="font-size:11px; color:#475569; margin-top:5px;">Fares minus all expenses</div>
+        </div>
+
+        <!-- Card 4: Dynamic — Daily Target / Avg Fare -->
+        <div class="card stat-card" style="padding:20px; border-color:rgba(245,158,11,0.25);" id="card-target">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <div class="icon-box" style="background:rgba(245,158,11,0.12);" id="card-target-icon">&#127919;</div>
+                <span id="card-target-label" style="font-size:11px; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.07em;">Daily Target</span>
+            </div>
+            <div id="stat-target" style="font-size:24px; font-weight:800; color:#F59E0B; letter-spacing:-0.02em;">—</div>
+            <div id="stat-target-sub" style="font-size:11px; color:#475569; margin-top:5px;">No trips yet</div>
+        </div>
+
+    </div>
+
+    <!-- ── FORM + STATUS ROW ── -->
+    <div class="main-grid" style="margin-bottom:28px;">
+
+        <!-- ─ Add Trip Form ─ -->
+        <div class="card" style="padding:28px;">
+            <div style="margin-bottom:22px;">
+                <div class="section-title">&#10133; Log New Trip</div>
+                <div class="section-sub">Record your ride data — saved instantly to your browser</div>
+            </div>
+
+            <form id="trip-form" novalidate autocomplete="off">
+
+                <!-- Row 1: Date + Fare -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                    <div>
+                        <label class="form-label" for="inp-date">Date</label>
+                        <input id="inp-date" type="date" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="form-label" for="inp-fare">
+                            Fare Earned (PKR) <span style="color:#EF4444;">*</span>
+                        </label>
+                        <input id="inp-fare" type="number" class="form-input" placeholder="e.g. 1500" min="1" step="1" required>
+                    </div>
+                </div>
+
+                <!-- Row 2: Vehicle + Fuel -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                    <div>
+                        <label class="form-label" for="inp-vehicle">Vehicle</label>
+                        <select id="inp-vehicle" class="form-input">
+                            <option value="Daihatsu Mira">&#128663; Daihatsu Mira</option>
+                            <option value="Honda Civic">&#128664; Honda Civic</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="inp-fuel">Fuel Expense (PKR)</label>
+                        <input id="inp-fuel" type="number" class="form-input" placeholder="0" min="0" step="1" value="0">
+                    </div>
+                </div>
+
+                <!-- Row 3: Maintenance + Other -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                    <div>
+                        <label class="form-label" for="inp-maintenance">Maintenance (PKR)</label>
+                        <input id="inp-maintenance" type="number" class="form-input" placeholder="0" min="0" step="1" value="0">
+                    </div>
+                    <div>
+                        <label class="form-label" for="inp-other">Other Expenses (PKR)</label>
+                        <input id="inp-other" type="number" class="form-input" placeholder="Tolls, parking..." min="0" step="1" value="0">
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div style="margin-bottom:22px;">
+                    <label class="form-label" for="inp-notes">
+                        Notes <span style="color:#334155; font-weight:400; text-transform:none; letter-spacing:0;">(optional)</span>
+                    </label>
+                    <input id="inp-notes" type="text" class="form-input" placeholder="Route, special conditions...">
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="btn-submit" class="btn-primary">
+                    <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
+                        <path d="M8.5 2.5V14.5M2.5 8.5H14.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                    </svg>
+                    Add Trip to Log
+                </button>
+
+            </form>
+        </div>
+
+        <!-- ─ Right Column: Status + Breakdown ─ -->
+        <div style="display:flex; flex-direction:column; gap:16px;">
+
+            <!-- Week Status Card -->
+            <div id="week-status-card"
+                 style="border-color:rgba(16,185,129,0.32); background:linear-gradient(135deg,rgba(16,185,129,0.09) 0%,rgba(16,185,129,0.03) 100%);">
+
+                <div id="wsc-label"
+                     style="font-size:11px; font-weight:700; color:#10B981; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">
+                    &#9989; Weekly Status
+                </div>
+                <div id="wsc-amount"
+                     style="font-size:34px; font-weight:900; color:#10B981; letter-spacing:-0.035em; line-height:1.1; margin-bottom:8px;">
+                    PKR 0
+                </div>
+                <div id="wsc-message" style="font-size:13px; color:#64748B; line-height:1.65;">
+                    Add your first trip to see your weekly profit status.
+                </div>
+
+                <div class="sep"></div>
+
+                <!-- Progress bar -->
+                <div style="font-size:10px; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">
+                    Week Progress
+                </div>
+                <div class="progress-track">
+                    <div id="week-prog-fill" class="progress-fill"
+                         style="width:0%; background:linear-gradient(90deg,#10B981,#6EE7B7);"></div>
+                </div>
+                <div id="week-prog-text" style="font-size:11px; color:#475569; margin-top:7px;"></div>
+
+            </div>
+
+            <!-- Expense Breakdown (mini) -->
+            <div class="card" style="padding:20px; flex:1;">
+                <div style="font-size:12px; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:16px;">
+                    This Week's Expense Split
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:11px;">
+
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:10px; height:10px; border-radius:3px; background:#F59E0B; flex-shrink:0;"></div>
+                            <span style="font-size:13px; color:#94A3B8;">&#9981; Fuel</span>
+                        </div>
+                        <span id="bd-fuel" style="font-size:13px; font-weight:700; color:#F1F5F9;">PKR 0</span>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:10px; height:10px; border-radius:3px; background:#EF4444; flex-shrink:0;"></div>
+                            <span style="font-size:13px; color:#94A3B8;">&#128295; Maintenance</span>
+                        </div>
+                        <span id="bd-maintenance" style="font-size:13px; font-weight:700; color:#F1F5F9;">PKR 0</span>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:10px; height:10px; border-radius:3px; background:#8B5CF6; flex-shrink:0;"></div>
+                            <span style="font-size:13px; color:#94A3B8;">&#128739; Other</span>
+                        </div>
+                        <span id="bd-other" style="font-size:13px; font-weight:700; color:#F1F5F9;">PKR 0</span>
+                    </div>
+
+                    <div id="bd-carried-row" style="display:none; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px dashed rgba(239,68,68,0.3);">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:10px; height:10px; border-radius:3px; background:#EF4444; flex-shrink:0;"></div>
+                            <span style="font-size:13px; color:#F87171; font-weight:600;">🔻 Carried Loss</span>
+                        </div>
+                        <span id="bd-carried" style="font-size:13px; font-weight:700; color:#EF4444;">PKR 0</span>
+                    </div>
+
+                </div>
+            </div>
+
+        </div><!-- /right column -->
+
+    </div><!-- /main-grid -->
+
+    <!-- ── PAST WEEKS ── -->
+    <div id="past-weeks-section" style="margin-bottom:28px; display:none;">
+        <div style="margin-bottom:16px;">
+            <div class="section-title">&#128197; Past Weeks</div>
+            <div class="section-sub">Completed weeks — click a bar to expand the full report</div>
+        </div>
+        <div id="past-weeks-list"></div>
+    </div>
+
+    <!-- ── ANALYTICS SECTION ── -->
+    <div style="margin-bottom:28px;">
+
+        <div style="margin-bottom:20px;">
+            <div class="section-title">&#128200; Analytics</div>
+            <div class="section-sub">Current week performance insights (Mon – Sun)</div>
+        </div>
+
+        <div class="charts-grid">
+
+            <!-- Chart 1: Weekly Trend -->
+            <div class="card" style="padding:24px;">
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:14px; font-weight:700; color:#F1F5F9;">Weekly Trend</div>
+                    <div style="font-size:12px; color:#64748B;">Daily fares vs expenses &nbsp;(&#9733; = today)</div>
+                </div>
+                <div class="chart-wrap">
+                    <canvas id="chart-weekly" aria-label="Weekly earnings trend bar chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Expense Breakdown -->
+            <div class="card" style="padding:24px;">
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:14px; font-weight:700; color:#F1F5F9;">Expense Split</div>
+                    <div style="font-size:12px; color:#64748B;">Fuel vs Maintenance vs Other</div>
+                </div>
+                <div class="chart-wrap">
+                    <canvas id="chart-expense" aria-label="Expense breakdown doughnut chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Vehicle Comparison -->
+            <div class="card" style="padding:24px;">
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:14px; font-weight:700; color:#F1F5F9;">Vehicle Comparison</div>
+                    <div style="font-size:12px; color:#64748B;">Mira vs Civic — this week</div>
+                </div>
+                <div class="chart-wrap">
+                    <canvas id="chart-vehicle" aria-label="Vehicle comparison bar chart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ── REPORTS SECTION ── -->
+    <div style="margin-bottom:28px;">
+
+        <div style="margin-bottom:20px;">
+            <div class="section-title">&#128203; Generate Report</div>
+            <div class="section-sub">View detailed earnings data for any period — weekly, monthly, or custom range</div>
+        </div>
+
+        <!-- Panel Card -->
+        <div class="card" style="padding:24px;">
+
+            <!-- Tabs -->
+            <div style="display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap;" role="tablist">
+                <button class="report-tab active" data-tab="weekly"  id="tab-weekly"  role="tab" aria-selected="true">&#128197; Weekly</button>
+                <button class="report-tab"        data-tab="monthly" id="tab-monthly" role="tab" aria-selected="false">&#128198; Monthly</button>
+                <button class="report-tab"        data-tab="custom"  id="tab-custom"  role="tab" aria-selected="false">&#128467; Custom Range</button>
+            </div>
+
+            <!-- Weekly Panel -->
+            <div id="rp-weekly" class="report-panel" role="tabpanel">
+                <div style="display:grid; grid-template-columns:1fr auto; gap:12px; align-items:end;">
+                    <div>
+                        <label class="form-label" for="rp-week-select">Select Week</label>
+                        <select id="rp-week-select" class="form-input"></select>
+                    </div>
+                    <button class="btn-primary" id="btn-gen-report" style="width:auto; padding:11px 28px; white-space:nowrap;">
+                        Generate
+                    </button>
+                </div>
+            </div>
+
+            <!-- Monthly Panel -->
+            <div id="rp-monthly" class="report-panel" style="display:none;" role="tabpanel">
+                <div style="display:grid; grid-template-columns:2fr 1fr auto; gap:12px; align-items:end;">
+                    <div>
+                        <label class="form-label" for="rp-month">Month</label>
+                        <select id="rp-month" class="form-input"></select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="rp-year">Year</label>
+                        <select id="rp-year" class="form-input"></select>
+                    </div>
+                    <button class="btn-primary" id="btn-gen-report-monthly" style="width:auto; padding:11px 28px; white-space:nowrap;">
+                        Generate
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Range Panel -->
+            <div id="rp-custom" class="report-panel" style="display:none;" role="tabpanel">
+                <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:end;">
+                    <div>
+                        <label class="form-label" for="rp-from">From Date</label>
+                        <input id="rp-from" type="date" class="form-input">
+                    </div>
+                    <div>
+                        <label class="form-label" for="rp-to">To Date</label>
+                        <input id="rp-to" type="date" class="form-input">
+                    </div>
+                    <button class="btn-primary" id="btn-gen-report-custom" style="width:auto; padding:11px 28px; white-space:nowrap;">
+                        Generate
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Report Output (rendered by JS) -->
+        <div id="report-output" style="display:none; margin-top:20px;"></div>
+
+    </div>
+
+    <!-- ── TRIP HISTORY TABLE ── -->
+    <div class="card" style="padding:28px;">
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+            <div>
+                <div class="section-title">&#128451; Trip History</div>
+                <div class="section-sub">All logged trips — most recent first</div>
+            </div>
+            <div id="trip-count-badge"
+                 style="font-size:12px; color:#64748B; background:rgba(99,102,241,0.1); padding:6px 14px; border-radius:20px; border:1px solid rgba(99,102,241,0.18); font-weight:600; white-space:nowrap;">
+                0 trips
+            </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="data-table" id="trips-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Vehicle</th>
+                        <th>Fare</th>
+                        <th>Fuel</th>
+                        <th>Maint.</th>
+                        <th>Other</th>
+                        <th>Net Trip</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="trips-tbody">
+                    <!-- Populated by app.js -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- ── WEEK-END SUNDAY BANNER ── -->
+    <div id="week-end-banner" style="margin-top:24px; display:none;"></div>
+
+</main>
+
+<!-- ═══════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════ -->
+<footer style="text-align:center; padding:20px 24px; border-top:1px solid rgba(99,102,241,0.08); color:#334155; font-size:12px; line-height:1.8;">
+    inDrive Earnings Tracker &middot; Built for Umar &middot;
+    <span style="color:#475569;">Data stored locally in your browser (LocalStorage) — works fully offline</span>
+</footer>
+
+<!-- ═══════════════════════════════════════════
+     APP SCRIPT
+     ═══════════════════════════════════════════ -->
+<script src="app.js"></script>
+</body>
+</html>
