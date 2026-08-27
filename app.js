@@ -7,9 +7,8 @@
    ============================================================= */
 
 // ── SUPABASE CONFIGURATION ────────────────────────────────────
-// You can paste your Supabase keys directly below, OR enter them in the app UI via the Cloud Sync button!
-const SUPABASE_URL      = '';
-const SUPABASE_ANON_KEY = '';
+const SUPABASE_URL      = 'https://knptukpbmxlqngawuhqb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_4ISfH-zrO5qZMXiH-tc9YQ_kqq5JXog';
 
 const STORAGE_KEY = 'indrive_trips_v1';
 const DAYS_SHORT  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -32,13 +31,13 @@ let cacheTrips     = [];
    ============================================================= */
 
 function getSupabaseCredentials() {
-    const url = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && !SUPABASE_URL.includes('YOUR_SUPABASE'))
-        ? SUPABASE_URL
-        : (localStorage.getItem('supabase_url') || '');
-    const key = (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR_SUPABASE'))
-        ? SUPABASE_ANON_KEY
-        : (localStorage.getItem('supabase_anon_key') || '');
-    return { url: url.trim(), key: key.trim() };
+    const url = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL.trim().length > 0)
+        ? SUPABASE_URL.trim()
+        : (localStorage.getItem('supabase_url') || '').trim();
+    const key = (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY.trim().length > 0)
+        ? SUPABASE_ANON_KEY.trim()
+        : (localStorage.getItem('supabase_anon_key') || '').trim();
+    return { url, key };
 }
 
 function initSupabaseClient() {
