@@ -190,16 +190,23 @@ const DB = {
                     created_at : trip.createdAt
                 }]);
                 if (error) {
-                    console.error('[Supabase] Add error:', error);
-                    showToast('⚠️ Saved locally, Supabase error: ' + error.message, 'error');
+                    console.error('[Supabase] Add error full details:', error);
+                    let msg = error.message || 'Unknown database error';
+                    if (msg.includes('row-level security') || error.code === '42501') {
+                        msg = 'RLS policy blocking write. Run "alter table trips disable row level security;" in Supabase SQL Editor!';
+                    } else if (msg.includes('relation "trips" does not exist') || error.code === '42P01') {
+                        msg = 'Table "trips" missing! Run the SQL setup script in Supabase.';
+                    }
+                    showToast('⚠️ Saved locally. Supabase error: ' + msg, 'error');
                 } else {
                     showToast('☁️ Saved to Supabase Cloud!', 'success');
                 }
             } catch (e) {
-                console.error('[Supabase] Add failed:', e);
+                console.error('[Supabase] Add exception:', e);
+                showToast('⚠️ Saved locally (Supabase exception)', 'error');
             }
         } else {
-            showToast('✅ Trip logged successfully!', 'success');
+            showToast('✅ Trip logged successfully (Local)', 'success');
         }
 
         return trip;
