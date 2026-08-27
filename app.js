@@ -2,11 +2,15 @@
 
 /* =============================================================
    inDrive Earnings Tracker — app.js
-   Stack : Vanilla JS | Chart.js | LocalStorage
+   Stack : Vanilla JS | Chart.js | Supabase | LocalStorage
    Author: Built for Umar (Pakistan)
    ============================================================= */
 
-// ── CONSTANTS ─────────────────────────────────────────────────
+// ── SUPABASE CONFIGURATION ────────────────────────────────────
+// You can paste your Supabase keys directly below, OR enter them in the app UI via the Cloud Sync button!
+const SUPABASE_URL      = '';
+const SUPABASE_ANON_KEY = '';
+
 const STORAGE_KEY = 'indrive_trips_v1';
 const DAYS_SHORT  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -19,39 +23,146 @@ Chart.defaults.color              = '#64748B';
 const chartInstances = { weekly: null, expense: null, vehicle: null };
 let   reportChartInstance = null;
 
+let supabaseClient = null;
+let cacheTrips     = [];
+
 
 /* =============================================================
-   DATA LAYER  — LocalStorage CRUD
+   SUPABASE CONNECTION MANAGEMENT
+   ============================================================= */
+
+function getSupabaseCredentials() {
+    const url = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL && !SUPABASE_URL.includes('YOUR_SUPABASE'))
+        ? SUPABASE_URL
+        : (localStorage.getItem('supabase_url') || '');
+    const key = (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR_SUPABASE'))
+        ? SUPABASE_ANON_KEY
+        : (localStorage.getItem('supabase_anon_key') || '');
+    return { url: url.trim(), key: key.trim() };
+}
+
+function initSupabaseClient() {
+    const { url, key } = getSupabaseCredentials();
+    if (url && key && window.supabase) {
+        try {
+            supabaseClient = window.supabase.createClient(url, key);
+            updateCloudStatusUI(true);
+            return true;
+        } catch (e) {
+            console.error('[Supabase] Init error:', e);
+            supabaseClient = null;
+            updateCloudStatusUI(false);
+        }
+    } else {
+        updateCloudStatusUI(false);
+    }
+    return false;
+}
+
+function updateCloudStatusUI(connected) {
+    const icon = document.getElementById('cloud-status-icon');
+    const text = document.getElementById('cloud-status-text');
+    const btn  = document.getElementById('btn-cloud-status');
+    if (!icon || !text || !btn) return;
+
+    if (connected) {
+        icon.textContent = '☁️';
+        text.textContent = 'Cloud Synced';
+        btn.style.borderColor = 'rgba(16,185,129,0.35)';
+        btn.style.color       = '#10B981';
+        btn.style.background  = 'rgba(16,185,129,0.1)';
+    } else {
+        icon.textContent = '💾';
+        text.textContent = 'Local Storage';
+        btn.style.borderColor = 'rgba(99,102,241,0.22)';
+        btn.style.color       = '#A5B4FC';
+        btn.style.background  = 'rgba(99,102,241,0.1)';
+    }
+}
+
+
+/* =============================================================
+   DATA LAYER — LocalStorage + Supabase Hybrid Sync
    ============================================================= */
 const DB = {
 
-    /** Read all trips from LocalStorage (returns [] on error) */
-    getAll() {
+    /** Initialize data layer: loads local cache first, then syncs with Supabase asynchronously */
+    async init() {
+        // Read local storage cache first
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            cacheTrips = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         } catch (e) {
-            console.error('[DB] Read error:', e);
-            return [];
+            cacheTrips = [];
+        }
+
+        // Render local cache immediately so screen is fast
+        refresh();
+
+        // Try initializing Supabase
+        if (initSupabaseClient()) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('trips')
+                    .select('*')
+                    .order('date', { ascending: false });
+
+                if (!error && Array.isArray(data)) {
+                    if (data.length === 0 && cacheTrips.length > 0) {
+                        // Auto-migrate local trips to Supabase if Supabase table is empty
+                        const dbTrips = cacheTrips.map(t => ({
+                            id         : t.id,
+                            date       : t.date,
+                            fare       : t.fare || 0,
+                            fuel       : t.fuel || 0,
+                            maintenance: t.maintenance || 0,
+                            other      : t.other || 0,
+                            vehicle    : t.vehicle,
+                            notes      : t.notes || '',
+                            created_at : t.createdAt || new Date().toISOString()
+                        }));
+                        const { error: insertErr } = await supabaseClient.from('trips').insert(dbTrips);
+                        if (!insertErr) {
+                            showToast('☁️ Uploaded local trips to Supabase cloud!', 'success');
+                        }
+                    } else if (data.length > 0) {
+                        // Map Supabase rows to app format
+                        cacheTrips = data.map(r => ({
+                            id         : r.id,
+                            date       : r.date,
+                            fare       : parseFloat(r.fare) || 0,
+                            fuel       : parseFloat(r.fuel) || 0,
+                            maintenance: parseFloat(r.maintenance) || 0,
+                            other      : parseFloat(r.other) || 0,
+                            vehicle    : r.vehicle,
+                            notes      : r.notes || '',
+                            createdAt  : r.created_at || new Date().toISOString()
+                        }));
+                        // Update local cache
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheTrips));
+                        refresh();
+                    }
+                } else if (error) {
+                    console.error('[Supabase] Fetch error:', error);
+                }
+            } catch (e) {
+                console.error('[Supabase] Sync failed:', e);
+            }
         }
     },
 
-    /** Persist array to LocalStorage */
-    save(trips) {
+    getAll() {
+        return cacheTrips;
+    },
+
+    saveLocal(trips) {
+        cacheTrips = trips;
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(trips));
-        } catch (e) {
-            showToast('⚠️ Storage full — please delete some old trips.', 'error');
-        }
+        } catch (e) {}
     },
 
-    /**
-     * Add a new trip record.
-     * @param {object} data - Raw form values
-     * @returns {object} The saved trip object
-     */
-    add(data) {
-        const trips = DB.getAll();
-        const trip  = {
+    async add(data) {
+        const trip = {
             id          : 'trip_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             date        : data.date,
             fare        : parseFloat(data.fare)        || 0,
@@ -62,14 +173,56 @@ const DB = {
             notes       : (data.notes || '').trim(),
             createdAt   : new Date().toISOString()
         };
-        trips.unshift(trip);   // newest first
-        DB.save(trips);
+        cacheTrips.unshift(trip);
+        DB.saveLocal(cacheTrips);
+
+        if (supabaseClient) {
+            try {
+                const { error } = await supabaseClient.from('trips').insert([{
+                    id         : trip.id,
+                    date       : trip.date,
+                    fare       : trip.fare,
+                    fuel       : trip.fuel,
+                    maintenance: trip.maintenance,
+                    other      : trip.other,
+                    vehicle    : trip.vehicle,
+                    notes      : trip.notes,
+                    created_at : trip.createdAt
+                }]);
+                if (error) {
+                    console.error('[Supabase] Add error:', error);
+                    showToast('⚠️ Saved locally, Supabase error: ' + error.message, 'error');
+                } else {
+                    showToast('☁️ Saved to Supabase Cloud!', 'success');
+                }
+            } catch (e) {
+                console.error('[Supabase] Add failed:', e);
+            }
+        } else {
+            showToast('✅ Trip logged successfully!', 'success');
+        }
+
         return trip;
     },
 
-    /** Delete a single trip by id */
-    remove(id) {
-        DB.save(DB.getAll().filter(t => t.id !== id));
+    async remove(id) {
+        cacheTrips = cacheTrips.filter(t => t.id !== id);
+        DB.saveLocal(cacheTrips);
+
+        if (supabaseClient) {
+            try {
+                const { error } = await supabaseClient.from('trips').delete().eq('id', id);
+                if (error) {
+                    console.error('[Supabase] Delete error:', error);
+                } else {
+                    showToast('☁️ Deleted from Supabase!', 'info');
+                }
+            } catch (e) {
+                console.error('[Supabase] Delete failed:', e);
+            }
+        } else {
+            showToast('Trip deleted.', 'info');
+        }
     }
 };
 
@@ -1418,7 +1571,7 @@ function refresh() {
 /* =============================================================
    FORM SUBMIT HANDLER
    ============================================================= */
-function handleSubmit(e) {
+async function handleSubmit(e) {
     e.preventDefault();
 
     const dateVal = document.getElementById('inp-date').value;
@@ -1436,8 +1589,8 @@ function handleSubmit(e) {
         return;
     }
 
-    // Save to LocalStorage
-    DB.add({
+    // Save to LocalStorage & Supabase
+    await DB.add({
         date        : dateVal,
         fare        : fareVal,
         fuel        : parseFloat(document.getElementById('inp-fuel').value)        || 0,
@@ -1458,7 +1611,6 @@ function handleSubmit(e) {
         document.getElementById(id).value = '0';
     });
 
-    showToast('✅ Trip logged successfully!', 'success');
     refresh();
 
     // Gently scroll to show the table was updated
@@ -1473,23 +1625,58 @@ function handleSubmit(e) {
    DELETE HANDLER
    (exposed on window so it's callable from inline onclick)
    ============================================================= */
-function handleDelete(id) {
+async function handleDelete(id) {
     if (!confirm('Delete this trip? This action cannot be undone.')) return;
-    DB.remove(id);
-    showToast('Trip deleted.', 'info');
+    await DB.remove(id);
     refresh();
+}
+
+
+/* =============================================================
+   CLOUD SETUP MODAL ACTIONS
+   ============================================================= */
+function openCloudModal() {
+    const { url, key } = getSupabaseCredentials();
+    document.getElementById('cfg-sb-url').value = url;
+    document.getElementById('cfg-sb-key').value = key;
+    document.getElementById('cloud-modal').style.display = 'flex';
+}
+
+function closeCloudModal() {
+    document.getElementById('cloud-modal').style.display = 'none';
+}
+
+async function saveCloudSettings() {
+    const url = document.getElementById('cfg-sb-url').value.trim();
+    const key = document.getElementById('cfg-sb-key').value.trim();
+
+    if (!url || !key) {
+        showToast('Please enter both Supabase URL and Anon Key.', 'error');
+        return;
+    }
+
+    localStorage.setItem('supabase_url', url);
+    localStorage.setItem('supabase_anon_key', key);
+
+    closeCloudModal();
+    showToast('Connecting to Supabase Cloud...', 'info');
+
+    await DB.init();
 }
 
 
 // Expose handlers called from inline HTML attributes
 window.handleDelete      = handleDelete;
 window.toggleWeekDetails = toggleWeekDetails;
+window.openCloudModal    = openCloudModal;
+window.closeCloudModal   = closeCloudModal;
+window.saveCloudSettings = saveCloudSettings;
 
 
 /* =============================================================
    INITIALISATION
    ============================================================= */
-function init() {
+async function init() {
     // Set date input to today by default
     document.getElementById('inp-date').value = toYMD(new Date());
 
@@ -1499,8 +1686,8 @@ function init() {
     // Render the header (week label + date)
     renderHeader();
 
-    // Initial full render
-    refresh();
+    // Initial data load + Supabase cloud sync
+    await DB.init();
 
     // Set up the report panel
     initReportUI();

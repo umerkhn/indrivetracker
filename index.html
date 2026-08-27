@@ -17,6 +17,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Supabase JS Client (v2) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         /* =========================================================
            BASE RESET & CUSTOM PROPERTIES
@@ -474,10 +477,18 @@
             </div>
         </div>
 
-        <!-- Week / Date info -->
-        <div style="text-align:right;">
-            <div id="header-week" style="font-size:13px; font-weight:600; color:#A5B4FC; letter-spacing:-0.01em;"></div>
-            <div id="header-date" style="font-size:12px; color:#475569; margin-top:2px;"></div>
+        <!-- Week / Date info + Cloud status -->
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+            <button id="btn-cloud-status" onclick="openCloudModal()"
+                    title="Click to configure Supabase cloud sync"
+                    style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.22); color:#A5B4FC; font-size:12px; font-weight:600; padding:6px 14px; border-radius:20px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s;">
+                <span id="cloud-status-icon">💾</span>
+                <span id="cloud-status-text">Local Storage</span>
+            </button>
+            <div style="text-align:right;">
+                <div id="header-week" style="font-size:13px; font-weight:600; color:#A5B4FC; letter-spacing:-0.01em;"></div>
+                <div id="header-date" style="font-size:12px; color:#475569; margin-top:2px;"></div>
+            </div>
         </div>
 
     </div>
@@ -861,6 +872,37 @@
     inDrive Earnings Tracker &middot; Built for Umar &middot;
     <span style="color:#475569;">Data stored locally in your browser (LocalStorage) — works fully offline</span>
 </footer>
+
+<!-- ═══════════════════════════════════════════
+     SUPABASE CLOUD SETUP MODAL
+     ═══════════════════════════════════════════ -->
+<div id="cloud-modal" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(7,9,15,0.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); align-items:center; justify-content:center; padding:20px;">
+    <div class="card" style="max-width:520px; width:100%; padding:28px; border-color:rgba(99,102,241,0.35); box-shadow:0 24px 60px rgba(0,0,0,0.7);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="font-size:18px; font-weight:800; color:#F1F5F9; display:flex; align-items:center; gap:8px;">
+                ☁️ Supabase Cloud Sync
+            </div>
+            <button onclick="closeCloudModal()" style="background:none; border:none; color:#64748B; font-size:22px; cursor:pointer; padding:4px;">&times;</button>
+        </div>
+        <p style="font-size:13px; color:#94A3B8; line-height:1.65; margin-bottom:20px;">
+            Connect your free Supabase database so your ride logs sync across all your devices and stay stored safely in the cloud on Vercel.
+        </p>
+
+        <div style="margin-bottom:16px;">
+            <label class="form-label" for="cfg-sb-url">Supabase Project URL</label>
+            <input id="cfg-sb-url" type="text" class="form-input" placeholder="https://xyzcompany.supabase.co">
+        </div>
+        <div style="margin-bottom:20px;">
+            <label class="form-label" for="cfg-sb-key">Supabase Anon Key</label>
+            <input id="cfg-sb-key" type="password" class="form-input" placeholder="eyJhbGciOiJIUzI1NiI...">
+        </div>
+
+        <div style="display:flex; gap:12px;">
+            <button class="btn-primary" onclick="saveCloudSettings()">Save & Sync Cloud</button>
+            <button onclick="closeCloudModal()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#94A3B8; border-radius:10px; padding:11px 20px; font-weight:600; font-size:14px; cursor:pointer;">Cancel</button>
+        </div>
+    </div>
+</div>
 
 <!-- ═══════════════════════════════════════════
      APP SCRIPT
