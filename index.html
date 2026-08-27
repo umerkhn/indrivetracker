@@ -892,10 +892,12 @@
             <label class="form-label" for="cfg-sb-url">Supabase Project URL</label>
             <input id="cfg-sb-url" type="text" class="form-input" placeholder="https://xyzcompany.supabase.co">
         </div>
-        <div style="margin-bottom:20px;">
+        <div style="margin-bottom:16px;">
             <label class="form-label" for="cfg-sb-key">Supabase Anon Key</label>
             <input id="cfg-sb-key" type="password" class="form-input" placeholder="eyJhbGciOiJIUzI1NiI...">
         </div>
+
+        <div id="cloud-modal-status" style="display:none; margin-bottom:16px; padding:12px 14px; border-radius:10px; font-size:12.5px; line-height:1.5;"></div>
 
         <div style="display:flex; gap:12px;">
             <button class="btn-primary" onclick="saveCloudSettings()">Save & Sync Cloud</button>

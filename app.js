@@ -107,6 +107,7 @@ const DB = {
                     .order('date', { ascending: false });
 
                 if (!error && Array.isArray(data)) {
+                    updateCloudStatusUI(true);
                     if (data.length === 0 && cacheTrips.length > 0) {
                         // Auto-migrate local trips to Supabase if Supabase table is empty
                         const dbTrips = cacheTrips.map(t => ({
@@ -123,6 +124,8 @@ const DB = {
                         const { error: insertErr } = await supabaseClient.from('trips').insert(dbTrips);
                         if (!insertErr) {
                             showToast('☁️ Uploaded local trips to Supabase cloud!', 'success');
+                        } else {
+                            console.error('[Supabase] Migration error:', insertErr);
                         }
                     } else if (data.length > 0) {
                         // Map Supabase rows to app format
@@ -143,9 +146,18 @@ const DB = {
                     }
                 } else if (error) {
                     console.error('[Supabase] Fetch error:', error);
+                    updateCloudStatusUI(false);
+                    let errStr = error.message || 'Database error';
+                    if (errStr.includes('relation "trips" does not exist') || error.code === '42P01') {
+                        errStr = 'Table "trips" missing! Please run SQL setup script in Supabase.';
+                    } else if (errStr.includes('row-level security') || error.code === '42501') {
+                        errStr = 'RLS blocking access! Run "alter table trips disable row level security;" in Supabase SQL Editor.';
+                    }
+                    showToast('⚠️ Supabase error: ' + errStr, 'error');
                 }
             } catch (e) {
                 console.error('[Supabase] Sync failed:', e);
+                updateCloudStatusUI(false);
             }
         }
     },
@@ -1646,6 +1658,8 @@ function openCloudModal() {
     const { url, key } = getSupabaseCredentials();
     document.getElementById('cfg-sb-url').value = url;
     document.getElementById('cfg-sb-key').value = key;
+    const statusEl = document.getElementById('cloud-modal-status');
+    if (statusEl) statusEl.style.display = 'none';
     document.getElementById('cloud-modal').style.display = 'flex';
 }
 
@@ -1656,19 +1670,69 @@ function closeCloudModal() {
 async function saveCloudSettings() {
     const url = document.getElementById('cfg-sb-url').value.trim();
     const key = document.getElementById('cfg-sb-key').value.trim();
+    const statusEl = document.getElementById('cloud-modal-status');
 
     if (!url || !key) {
-        showToast('Please enter both Supabase URL and Anon Key.', 'error');
+        if (statusEl) {
+            statusEl.style.display = 'block';
+            statusEl.style.background = 'rgba(239,68,68,0.15)';
+            statusEl.style.color = '#EF4444';
+            statusEl.innerHTML = '❌ Please enter both Supabase Project URL and Anon Key.';
+        }
         return;
+    }
+
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(99,102,241,0.15)';
+        statusEl.style.color = '#A5B4FC';
+        statusEl.innerHTML = '⏳ Testing connection to Supabase database...';
     }
 
     localStorage.setItem('supabase_url', url);
     localStorage.setItem('supabase_anon_key', key);
 
-    closeCloudModal();
-    showToast('Connecting to Supabase Cloud...', 'info');
-
     await DB.init();
+
+    if (supabaseClient) {
+        try {
+            const { error } = await supabaseClient.from('trips').select('id').limit(1);
+            if (!error) {
+                if (statusEl) {
+                    statusEl.style.background = 'rgba(16,185,129,0.15)';
+                    statusEl.style.color = '#10B981';
+                    statusEl.innerHTML = '✅ Connected successfully to Supabase! Table "trips" is ready.';
+                }
+                setTimeout(() => closeCloudModal(), 1200);
+                showToast('☁️ Supabase Cloud Synced!', 'success');
+                return;
+            } else {
+                let msg = error.message || 'Database connection error';
+                if (msg.includes('relation "trips" does not exist') || error.code === '42P01') {
+                    msg = 'Table "trips" missing! Run the SQL setup script in Supabase SQL Editor.';
+                } else if (msg.includes('row-level security') || error.code === '42501') {
+                    msg = 'RLS blocking access! Run "alter table trips disable row level security;" in Supabase.';
+                }
+                if (statusEl) {
+                    statusEl.style.background = 'rgba(239,68,68,0.15)';
+                    statusEl.style.color = '#EF4444';
+                    statusEl.innerHTML = '⚠️ ' + msg;
+                }
+            }
+        } catch (e) {
+            if (statusEl) {
+                statusEl.style.background = 'rgba(239,68,68,0.15)';
+                statusEl.style.color = '#EF4444';
+                statusEl.innerHTML = '❌ Could not connect. Check URL & Key format.';
+            }
+        }
+    } else {
+        if (statusEl) {
+            statusEl.style.background = 'rgba(239,68,68,0.15)';
+            statusEl.style.color = '#EF4444';
+            statusEl.innerHTML = '❌ Invalid Supabase URL or Key.';
+        }
+    }
 }
 
 
